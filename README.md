@@ -1,1 +1,1 @@
-#Point Gray Light Pollution Imaging System
+Point Gray Light Pollution Imaging System
