@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <MsTimer2.h>
 #include <SparkFunLSM9DS1.h>
+#include <SPI.h>
 #include <SD.h>
 #include "config.h"
 
@@ -12,7 +13,7 @@ char dims[] = {'x', 'y', 'z'};
 
 float gyroOffset[3];
 
-float relativeAngles[3] = {0, 0, 0};
+float relativeAngles[3] = {0, 0, 0}; // x, y, z
 int lastTimes[3];
 float lastGyros[3];
 
@@ -20,8 +21,9 @@ bool firstLoop = true;
 bool updateAzimuth = false;
 
 void setup() {
-  // Setup LED and azimuth stepper speed
+  // Setup LED, TRIGGER, and azimuth stepper speed
   pinMode(LED, OUTPUT);
+  pinMode(TRIGGER, INPUT);
   azimuth.setSpeed(STEPPER_RPM);
   // Set up IMU
   imu.settings.device.commInterface = IMU_MODE_I2C;
@@ -29,8 +31,10 @@ void setup() {
   imu.settings.device.agAddress = LSM9DS1_AG;
   digitalWrite(LED, HIGH);
   while (!imu.begin()); // keep the light on if the imu can't be found
+  // Set up SD card
+  while (!SD.begin(SD_CHIP_SELECT));
   digitalWrite(LED, LOW);
-  // Setup interrupts
+  // Set up interrupts
   MsTimer2::set(MOTOR_UPDATE_RATE, updateMotorTrigger);
   MsTimer2::start();
 }
@@ -57,6 +61,14 @@ void loop() {
       float degreesCorrected = rotateCameraAzimuth(-relativeAngles[2]);
       relativeAngles[2] += degreesCorrected;
       updateAzimuth = false;
+    }
+  }
+
+  if (digitalRead(TRIGGER) == HIGH) {
+    File logFile = SD.open("camera.txt", FILE_WRITE);
+    if (logFile) {
+      logFile.println(String(relativeAngles[0]) + ", " + String(relativeAngles[1]) + String(relativeAngles[2]));
+      logFile.close();
     }
   }
 }

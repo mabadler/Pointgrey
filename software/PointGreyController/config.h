@@ -2,7 +2,9 @@
 #define LSM9DS1_AG  0x6B
 #define GEAR_RATIO 3 // slip / motor
 #define LED 7
-#define TRIGGER 6
+
+#define SD_CHIP_SELECT 3
+#define TRIGGER 2
 
 #define NUM_STEPS 200
 #define STEP_SIZE 1.8
