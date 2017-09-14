@@ -4,6 +4,7 @@
 #include <SparkFunLSM9DS1.h>
 #include <SPI.h>
 #include <SD.h>
+#include <EEPROM.h>
 #include "config.h"
 
 LSM9DS1 imu;
@@ -12,6 +13,7 @@ Stepper azimuth(NUM_STEPS, 3, 4, 5, 6);
 char dims[] = {'x', 'y', 'z'};
 
 float gyroOffset[3];
+float accelOffset[3];
 
 float relativeAngles[3] = {0, 0, 0}; // x, y, z
 int lastTimes[3];
@@ -33,6 +35,10 @@ void setup() {
   while (!imu.begin()); // keep the light on if the imu can't be found
   // Set up SD card
   while (!SD.begin(SD_CHIP_SELECT));
+  // Get accelerometer offsets determined in lab
+  for (int addr = 0; addr < 3 * sizeof(float); addr += sizeof(float)) {
+    EEPROM.get(addr, accelOffset[addr / sizeof(float)]);
+  }
   digitalWrite(LED, LOW);
   // Set up interrupts
   MsTimer2::set(MOTOR_UPDATE_RATE, updateMotorTrigger);
@@ -83,18 +89,38 @@ float readGyro(char dim) {
   }
   switch (dim) {
     case 'x':
-      return imu.calcGyro(imu.gx) - gyroOffset[0];
+      return (imu.calcGyro(imu.gx) - gyroOffset[0]) * cos(asin(readAccel('x')));
       break;
     case 'y':
-      return imu.calcGyro(imu.gy) - gyroOffset[1];
+      return (imu.calcGyro(imu.gy) - gyroOffset[1]) * cos(asin(readAccel('y')));
       break;
     case 'z':
-      return imu.calcGyro(imu.gz) - gyroOffset[2];
+      return (imu.calcGyro(imu.gz) - gyroOffset[2]) * readAccel('z');
       break;
     default:
       return 0;
       break;
   } 
+}
+
+float readAccel(char dim) {
+  if (imu.accelAvailable()) {
+    imu.readAccel();
+  }
+  switch (dim) {
+    case 'x':
+      return imu.calcAccel(imu.gx) - accelOffset[0];
+      break;
+    case 'y':
+      return imu.calcAccel(imu.gy) - accelOffset[1];
+      break;
+    case 'z':
+      return imu.calcAccel(imu.gz) - accelOffset[2];
+      break;
+    default:
+      return 0;
+      break;
+  }
 }
 
 void zeroIMU(int samples) {
@@ -113,4 +139,3 @@ float rotateCameraAzimuth(float deg) {
   azimuth.step(steps);
   return steps * STEP_SIZE / GEAR_RATIO; // degrees actually rotated
 }
-
